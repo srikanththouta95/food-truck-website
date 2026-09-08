@@ -1,1 +1,46 @@
 
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Food Truck | Kompally</title>
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<style>
+body{font-family:Arial,sans-serif;max-width:850px;margin:auto;padding:30px;background:#fffaf2;color:#241b12}
+.card{background:white;padding:25px;border-radius:18px;box-shadow:0 5px 25px #0001;margin:18px 0}
+button{background:#c53b18;color:white;border:0;padding:12px 18px;border-radius:10px;font-weight:bold;cursor:pointer}
+.item{display:flex;justify-content:space-between;align-items:center;padding:15px 0;border-bottom:1px solid #eee}
+input{display:block;width:100%;padding:12px;margin:8px 0 15px;box-sizing:border-box}
+</style></head>
+<body>
+<h1>🍽️ Food Truck</h1><p>📍 Kompally • 📞 9014577566</p>
+<div class="card">
+<div class="item"><span><b>Idly</b><br>₹50</span><button onclick="add('Idly',50)">Add</button></div>
+<div class="item"><span><b>Wada</b><br>₹70</span><button onclick="add('Wada',70)">Add</button></div>
+<h2>Cart</h2><div id="cart">Empty</div><h3>Total: ₹<span id="total">0</span></h3>
+<input id="name" placeholder="Your name"><input id="phone" value="9014577566" placeholder="Phone">
+<button onclick="pay()">Pay Online</button>
+<p id="status"></p>
+</div>
+<script>
+const cart={};
+function add(n,p){cart[n]=cart[n]||{price:p,qty:0};cart[n].qty++;render()}
+function render(){let total=0;document.getElementById('cart').innerHTML=Object.keys(cart).map(n=>{let x=cart[n];total+=x.price*x.qty;return `${n} × ${x.qty} — ₹${x.price*x.qty}`}).join('<br>')||'Empty';document.getElementById('total').textContent=total}
+async function pay(){
+ const amount=Object.values(cart).reduce((s,x)=>s+x.price*x.qty,0);
+ if(!amount)return alert('Add an item first.');
+ const name=document.getElementById('name').value.trim(), phone=document.getElementById('phone').value.trim();
+ const r=await fetch('/create-order',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({amount:amount*100,name,phone})});
+ const order=await r.json(); if(!r.ok)return alert(order.error||'Payment setup failed');
+ const options={key:'YOUR_PUBLIC_KEY_WILL_BE_RETURNED_HERE',amount:order.amount,currency:'INR',name:'Food Truck',description:'Food order',order_id:order.id,prefill:{name,contact:phone},theme:{color:'#c53b18'},
+ handler:async function(response){
+  const v=await fetch('/verify-payment',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(response)});
+  const result=await v.json();
+  document.getElementById('status').textContent=result.verified?'✅ Payment successful! Payment ID: '+result.payment_id:'❌ Payment verification failed.';
+ }};
+ // Fetch the public key from the server for safety/convenience.
+ const keyRes=await fetch('/key'); const keyData=await keyRes.json(); options.key=keyData.key;
+ new Razorpay(options).open();
+}
+render();
+</script></body></html>
